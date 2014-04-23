@@ -7,18 +7,11 @@
 #include "myqueue.h"
 
 
-bool SendToQueue()
-{
-	g_lReqQueueId = strtol(link.post_q_id, 0, 16);
-	
-	
-}
-
 int q_post(MSG_BUF *msgbuf){
-    return _que_post(msgbuf->key, msgbuf->type, msgbuf, msgbuf->len,msgbuf->waiting); 
+    return _que_post(msgbuf->key, msgbuf->type, msgbuf, sizeof(MSG_BUF),msgbuf->waiting); 
 }
 
-int _que_post(long key, long type, void* buff, int len, bool waiting) {
+int _que_post(long key, long type, void* buff, int len, int waiting) {
     char* buffer = (char*) buff;
     _MSG_BUF msg;
     struct msqid_ds buf;
@@ -27,7 +20,7 @@ int _que_post(long key, long type, void* buff, int len, bool waiting) {
     if (!key) return -1;
 
     if ((msgqid = msgget((key_t) key, IPC_NOWAIT)) < 0) {
-        msgqid = msgget((key_t) key, IPC_CREAT);
+        msgqid = msgget((key_t) key, _MSG_CREAT_);
         msgctl(msgqid, IPC_STAT, &buf);
         buf.msg_perm.mode = 0666;
         buf.msg_perm.uid = getuid();
@@ -41,45 +34,45 @@ int _que_post(long key, long type, void* buff, int len, bool waiting) {
 }
 
 
-bool SendToQueueByCode(long lReqQueue, OUT_DATA* pReq, int code, bool bWaitingFor) {
+void testq_post(){
+    
+    MSG_BUF testmsg;
+    char temp[80] = {0};
+    int len = 0;
+    
+    memset(&testmsg, 0, sizeof(testmsg));
+    
+    testmsg.key = 0x5000;
+    testmsg.type = 0x9;
+    testmsg.ret_id = 0x5800;
+    testmsg.type = 0x9;
+    testmsg.waiting = 0;
+    
+    
+    gets(temp);
 
-    assert(pReq != 0);
-    TRACE("%s", __PRETTY_FUNCTION__);
+                     
+    len = strlen(temp);
+    
+    memmove(testmsg.data, temp, len);
+    testmsg.len = sizeof(MSG_BUF) - sizeof(testmsg.data) + len + 1;
+    
+    printf("testmsg.len is %d", testmsg.len);
+    printf("string length is %d\n", len);
+    
+    if (q_post(&testmsg) <0)
+        return;
+    
 
-    pReq->ret_q_type = 1;
-    pReq->code = code;
-    pReq->ret_q_id = g_lRespQueueId;
-
-    if (q_post(lReqQueue, pReq, sizeof (OUT_DATA), bWaitingFor ? 0 : 1) < 0) {
-        ShowMsg(NORMAL_MSG, "send queue %#x failed: %s", lReqQueue, strerror(errno));
-        return false;
-    }
-    return true;
-}
-
-int q_t_post(long key, long type, void* buff, int len, int flag) {
-    char* buffer = (char*) buff;
-    CPSMsg_t msg;
-    struct msqid_ds buf;
-    int msgqid;
-
-    assert(_MAX_SINGLE_MSG_ >= len);
-
-    if (!key) return -1;
-
-    if ((msgqid = msgget((key_t)key, IPC_NOWAIT)(key)) < 0) {
-        msgqid = msgget((key_t) key, _MSG_CREAT_);
-        msgctl(msgqid, IPC_STAT, &buf);
-        buf.msg_perm.mode = 0666;
-        buf.msg_perm.uid = getuid();
-        buf.msg_perm.gid = getgid();
-        buf.msg_qbytes = _MAX_TOTAL_MSG_;
-        msgctl(msgqid, IPC_SET, &buf);
-    }
-    msg.mtype = type;
-    memmove(msg.mtext, buffer, len);
-    return msgsnd(msgqid, &msg, len, (flag != 0 ? IPC_NOWAIT : 0));
+    printf("\nend test_post\n");
+    
 }
 
 
+#ifdef ___TEST___
+int main(){
+    printf("start testq_post\n");
+    testq_post();
+}
 
+#endif
